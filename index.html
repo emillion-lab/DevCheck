@@ -1,0 +1,973 @@
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0a0a0f">
+<title>DevCheck — Second-Hand Device Tester</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@300;400;600;800&display=swap');
+  :root {
+    --bg:#0a0a0f;--surface:#12121a;--card:#1a1a26;--border:#2a2a3e;
+    --accent:#00d4ff;--accent2:#7c3aed;--green:#00e676;--red:#ff1744;
+    --yellow:#ffd600;--text:#e8e8f0;--muted:#6b6b8a;
+    --font-mono:'JetBrains Mono',monospace;--font-sans:'Inter',sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:var(--font-sans);min-height:100vh;padding-bottom:60px}
+  header{background:linear-gradient(135deg,#0d0d1a,#12121f);border-bottom:1px solid var(--border);padding:20px 24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;position:sticky;top:0;z-index:100}
+  .logo{font-family:var(--font-mono);font-size:22px;font-weight:700;color:var(--accent);letter-spacing:-1px}
+  .logo span{color:var(--accent2)}
+  .header-controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .mode-tabs,.lang-tabs{display:flex;gap:4px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:4px}
+  .mode-tab,.lang-tab{padding:7px 16px;border-radius:7px;border:none;background:transparent;color:var(--muted);font-family:var(--font-sans);font-size:13px;font-weight:600;cursor:pointer;transition:all .2s}
+  .mode-tab.active{background:var(--accent2);color:#fff}
+  .lang-tab.active{background:var(--accent);color:#000}
+  .score-badge{font-family:var(--font-mono);font-size:13px;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:6px 14px;color:var(--accent)}
+  main{max-width:900px;margin:0 auto;padding:24px 16px}
+  .sysinfo{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px 20px;display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:24px}
+  .sysinfo-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--muted)}
+  .sysinfo-value{font-family:var(--font-mono);font-size:13px;color:var(--accent);word-break:break-all;margin-top:3px}
+  .section-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;color:var(--muted);margin:28px 0 12px;display:flex;align-items:center;gap:8px}
+  .section-title::after{content:'';flex:1;height:1px;background:var(--border)}
+  .test-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:12px}
+  .test-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px;transition:border-color .2s}
+  .test-card:hover{border-color:var(--accent2)}
+  .test-card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+  .test-card-title{font-size:14px;font-weight:600;display:flex;align-items:center;gap:8px}
+  .test-card-icon{font-size:18px}
+  .status-dot{width:10px;height:10px;border-radius:50%;background:var(--border);flex-shrink:0;transition:background .3s}
+  .status-dot.pass{background:var(--green);box-shadow:0 0 8px var(--green)}
+  .status-dot.fail{background:var(--red);box-shadow:0 0 8px var(--red)}
+  .status-dot.warn{background:var(--yellow);box-shadow:0 0 8px var(--yellow)}
+  .status-dot.running{background:var(--accent);animation:pulse 1s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+  .test-result{font-family:var(--font-mono);font-size:12px;color:var(--muted);min-height:32px;margin-bottom:10px;line-height:1.5;word-break:break-word}
+  .test-result.good{color:var(--green)}.test-result.bad{color:var(--red)}.test-result.warn{color:var(--yellow)}
+  .btn{padding:8px 16px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-family:var(--font-sans);font-size:13px;font-weight:600;cursor:pointer;transition:all .18s;display:inline-flex;align-items:center;gap:6px}
+  .btn:hover{background:var(--accent2);border-color:var(--accent2);color:#fff}
+  .btn.primary{background:var(--accent2);border-color:var(--accent2);color:#fff}
+  .btn.danger{background:#3a1020;border-color:var(--red);color:var(--red)}
+  .btn.small{padding:5px 10px;font-size:11px}
+  .checklist{display:flex;flex-direction:column;gap:8px}
+  .check-item{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+  .check-item-text{flex:1;font-size:13px}
+  .check-item-text small{display:block;color:var(--muted);font-size:11px;margin-top:2px}
+  .check-buttons{display:flex;gap:6px}
+  .check-btn{padding:5px 12px;border-radius:6px;border:1px solid var(--border);background:transparent;font-size:12px;font-weight:700;cursor:pointer;transition:all .15s}
+  .check-btn.ok{color:var(--green);border-color:var(--green)}.check-btn.ok.active{background:var(--green);color:#000}
+  .check-btn.nok{color:var(--red);border-color:var(--red)}.check-btn.nok.active{background:var(--red);color:#fff}
+  .check-btn.skip{color:var(--muted);border-color:var(--border)}.check-btn.skip.active{background:var(--border);color:var(--text)}
+  #screenOverlay{display:none;position:fixed;inset:0;z-index:9999;cursor:pointer;flex-direction:column;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:20px;font-weight:700}
+  #screenOverlay.active{display:flex}
+  #screenOverlay p{text-shadow:0 0 20px rgba(0,0,0,.8);pointer-events:none}
+  #keyDisplay{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px;font-family:var(--font-mono);font-size:13px;min-height:44px;margin-top:8px;color:var(--accent);text-align:center;word-break:break-all}
+  .score-panel{background:linear-gradient(135deg,var(--card),#1a1030);border:1px solid var(--accent2);border-radius:16px;padding:20px 24px;margin-top:28px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px}
+  .score-number{font-family:var(--font-mono);font-size:52px;font-weight:700;line-height:1}
+  .score-number.good{color:var(--green)}.score-number.ok{color:var(--yellow)}.score-number.bad{color:var(--red)}
+  .score-label{font-size:13px;color:var(--muted);margin-top:4px}
+  .score-verdict{font-size:20px;font-weight:800;margin-bottom:4px}
+  .score-sub{font-size:13px;color:var(--muted);max-width:340px}
+  .battery-visual{display:flex;align-items:center;gap:8px;margin-top:8px}
+  .battery-bar{flex:1;height:10px;background:var(--border);border-radius:5px;overflow:hidden}
+  .battery-fill{height:100%;border-radius:5px;background:var(--green);transition:width .5s}
+  #touchArea{width:100%;height:120px;background:var(--surface);border:2px dashed var(--border);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--muted);margin-top:8px;touch-action:none;position:relative;overflow:hidden}
+  .touch-dot{position:absolute;width:30px;height:30px;border-radius:50%;background:var(--accent);opacity:.7;transform:translate(-50%,-50%);pointer-events:none}
+  .hidden{display:none!important}
+  @media(max-width:600px){.test-grid{grid-template-columns:1fr}.score-panel{flex-direction:column;text-align:center}header{padding:14px 16px}.logo{font-size:18px}.header-controls{width:100%;justify-content:space-between}}
+  @media print{body{background:#fff;color:#000}header,.btn,.check-buttons,#screenOverlay{display:none!important}.test-card,.check-item{border:1px solid #ccc}}
+</style>
+</head>
+<body>
+<div id="screenOverlay" onclick="nextScreenColor()">
+  <p id="screenColorName"></p>
+  <p style="font-size:14px;opacity:.6;margin-top:12px" id="screenEsc"></p>
+</div>
+
+<header>
+  <div class="logo">Dev<span>Check</span> 2.0</div>
+  <div class="header-controls">
+    <div class="lang-tabs">
+      <button class="lang-tab active" onclick="setLang('bg')">🇧🇬 БГ</button>
+      <button class="lang-tab" onclick="setLang('en')">🇬🇧 EN</button>
+    </div>
+    <div class="mode-tabs">
+      <button class="mode-tab active" onclick="setMode('laptop')">💻 <span data-t="laptop"></span></button>
+      <button class="mode-tab" onclick="setMode('mobile')">📱 <span data-t="phone"></span></button>
+    </div>
+    <div class="score-badge"><span data-t="score"></span>: <span id="headerScore">—</span></div>
+  </div>
+</header>
+
+<main>
+  <!-- SYSTEM INFO -->
+  <div class="sysinfo">
+    <div><div class="sysinfo-label" data-t="si_cpu"></div><div class="sysinfo-value" id="si-cpu">—</div></div>
+    <div><div class="sysinfo-label" data-t="si_ram"></div><div class="sysinfo-value" id="si-ram">—</div></div>
+    <div><div class="sysinfo-label" data-t="si_screen"></div><div class="sysinfo-value" id="si-screen">—</div></div>
+    <div><div class="sysinfo-label" data-t="si_platform"></div><div class="sysinfo-value" id="si-platform">—</div></div>
+    <div><div class="sysinfo-label" data-t="si_lang"></div><div class="sysinfo-value" id="si-lang">—</div></div>
+    <div><div class="sysinfo-label" data-t="si_storage"></div><div class="sysinfo-value" id="si-storage">—</div></div>
+    <div><div class="sysinfo-label" data-t="si_gpu"></div><div class="sysinfo-value" id="si-gpu">—</div></div>
+    <div><div class="sysinfo-label" data-t="si_net"></div><div class="sysinfo-value" id="si-net">—</div></div>
+  </div>
+
+  <!-- LAPTOP -->
+  <div id="laptopContent">
+    <div class="section-title" data-t="auto_tests"></div>
+    <div class="test-grid">
+
+      <div class="test-card">
+        <div class="test-card-header">
+          <div class="test-card-title"><span class="test-card-icon">🔋</span> <span data-t="battery"></span></div>
+          <div class="status-dot" id="dot-battery"></div>
+        </div>
+        <div class="test-result" id="res-battery" data-t-init="press_test"></div>
+        <div class="battery-visual" id="battery-vis" style="display:none">
+          <span id="battery-pct" style="font-family:var(--font-mono);font-size:12px;width:36px">0%</span>
+          <div class="battery-bar"><div class="battery-fill" id="battery-fill" style="width:0%"></div></div>
+        </div>
+        <button class="btn" onclick="testBattery()">▶ <span data-t="run_test"></span></button>
+      </div>
+
+      <div class="test-card">
+        <div class="test-card-header">
+          <div class="test-card-title"><span class="test-card-icon">🖥️</span> <span data-t="display"></span></div>
+          <div class="status-dot" id="dot-display"></div>
+        </div>
+        <div class="test-result" id="res-display" data-t-init="press_test"></div>
+        <button class="btn" onclick="testDisplay()">▶ <span data-t="run_display"></span></button>
+      </div>
+
+      <div class="test-card">
+        <div class="test-card-header">
+          <div class="test-card-title"><span class="test-card-icon">🔊</span> <span data-t="audio_out"></span></div>
+          <div class="status-dot" id="dot-audio"></div>
+        </div>
+        <div class="test-result" id="res-audio" data-t-init="press_test"></div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button class="btn" onclick="testAudioTone(440,'left','audio')">◁ <span data-t="left"></span></button>
+          <button class="btn" onclick="testAudioTone(440,'right','audio')">▷ <span data-t="right"></span></button>
+          <button class="btn" onclick="testAudioTone(440,'both','audio')">◁▷ <span data-t="both"></span></button>
+        </div>
+      </div>
+
+      <div class="test-card">
+        <div class="test-card-header">
+          <div class="test-card-title"><span class="test-card-icon">🎤</span> <span data-t="mic"></span></div>
+          <div class="status-dot" id="dot-mic"></div>
+        </div>
+        <div class="test-result" id="res-mic" data-t-init="press_test"></div>
+        <canvas id="audioCanvas" style="width:100%;height:60px;background:var(--surface);border-radius:8px;margin-top:8px;display:none"></canvas>
+        <button class="btn" onclick="testMic()" style="margin-top:8px">▶ <span data-t="run_test"></span></button>
+      </div>
+
+      <div class="test-card">
+        <div class="test-card-header">
+          <div class="test-card-title"><span class="test-card-icon">📷</span> <span data-t="camera"></span></div>
+          <div class="status-dot" id="dot-cam"></div>
+        </div>
+        <div class="test-result" id="res-cam" data-t-init="press_test"></div>
+        <video id="camVideo" autoplay muted playsinline style="width:100%;border-radius:8px;display:none;max-height:140px;object-fit:cover"></video>
+        <div style="display:flex;gap:6px;margin-top:8px">
+          <button class="btn" onclick="testCam()">▶ <span data-t="run_test"></span></button>
+          <button class="btn danger small" onclick="stopCam()">■ <span data-t="stop"></span></button>
+        </div>
+      </div>
+
+      <div class="test-card">
+        <div class="test-card-header">
+          <div class="test-card-title"><span class="test-card-icon">🎮</span> <span data-t="gpu"></span></div>
+          <div class="status-dot" id="dot-gpu"></div>
+        </div>
+        <div class="test-result" id="res-gpu" data-t-init="press_test"></div>
+        <button class="btn" onclick="testGPU()">▶ <span data-t="run_test"></span></button>
+      </div>
+
+      <div class="test-card">
+        <div class="test-card-header">
+          <div class="test-card-title"><span class="test-card-icon">⌨️</span> <span data-t="keyboard"></span></div>
+          <div class="status-dot" id="dot-keyboard"></div>
+        </div>
+        <div class="test-result" id="res-keyboard" data-t-init="keyboard_hint"></div>
+        <div id="keyDisplay" style="display:none"></div>
+        <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
+          <button class="btn" onclick="startKeyboard()">▶ <span data-t="activate"></span></button>
+          <button class="btn small" onclick="clearKeyboard()">✕ <span data-t="clear"></span></button>
+        </div>
+      </div>
+
+      <div class="test-card">
+        <div class="test-card-header">
+          <div class="test-card-title"><span class="test-card-icon">📶</span> <span data-t="network"></span></div>
+          <div class="status-dot" id="dot-net"></div>
+        </div>
+        <div class="test-result" id="res-net" data-t-init="press_test"></div>
+        <button class="btn" onclick="testNetwork()">▶ <span data-t="run_test"></span></button>
+      </div>
+
+    </div>
+    <div class="section-title" data-t="manual_check"></div>
+    <div class="checklist" id="checklist-laptop"></div>
+  </div>
+
+  <!-- MOBILE -->
+  <div id="mobileContent" class="hidden">
+    <div class="section-title" data-t="auto_tests"></div>
+    <div class="test-grid">
+
+      <div class="test-card">
+        <div class="test-card-header">
+          <div class="test-card-title"><span class="test-card-icon">🔋</span> <span data-t="battery"></span></div>
+          <div class="status-dot" id="dot-mbattery"></div>
+        </div>
+        <div class="test-result" id="res-mbattery" data-t-init="press_test"></div>
+        <div class="battery-visual" id="mbattery-vis" style="display:none">
+          <span id="mbattery-pct" style="font-family:var(--font-mono);font-size:12px;width:36px">0%</span>
+          <div class="battery-bar"><div class="battery-fill" id="mbattery-fill" style="width:0%"></div></div>
+        </div>
+        <button class="btn" onclick="testMobileBattery()">▶ <span data-t="run_test"></span></button>
+      </div>
+
+      <div class="test-card">
+        <div class="test-card-header">
+          <div class="test-card-title"><span class="test-card-icon">👆</span> <span data-t="touchscreen"></span></div>
+          <div class="status-dot" id="dot-touch"></div>
+        </div>
+        <div class="test-result" id="res-touch" data-t-init="press_test"></div>
+        <div id="touchArea"><span data-t="touch_here"></span></div>
+        <button class="btn" onclick="testTouch()" style="margin-top:8px">▶ <span data-t="activate"></span></button>
+      </div>
+
+      <div class="test-card">
+        <div class="test-card-header">
+          <div class="test-card-title"><span class="test-card-icon">🧭</span> <span data-t="gyro"></span></div>
+          <div class="status-dot" id="dot-gyro"></div>
+        </div>
+        <div class="test-result" id="res-gyro" data-t-init="press_test"></div>
+        <button class="btn" onclick="testGyro()">▶ <span data-t="run_gyro"></span></button>
+      </div>
+
+      <div class="test-card">
+        <div class="test-card-header">
+          <div class="test-card-title"><span class="test-card-icon">📷</span> <span data-t="camera"></span></div>
+          <div class="status-dot" id="dot-mcam"></div>
+        </div>
+        <div class="test-result" id="res-mcam" data-t-init="press_test"></div>
+        <video id="mcamVideo" autoplay muted playsinline style="width:100%;border-radius:8px;display:none;max-height:140px;object-fit:cover"></video>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
+          <button class="btn" onclick="testMCam('environment')">▶ <span data-t="cam_back"></span></button>
+          <button class="btn" onclick="testMCam('user')">▶ <span data-t="cam_front"></span></button>
+          <button class="btn danger small" onclick="stopMCam()">■ <span data-t="stop"></span></button>
+        </div>
+      </div>
+
+      <div class="test-card">
+        <div class="test-card-header">
+          <div class="test-card-title"><span class="test-card-icon">🔊</span> <span data-t="audio_mic"></span></div>
+          <div class="status-dot" id="dot-maudio"></div>
+        </div>
+        <div class="test-result" id="res-maudio" data-t-init="press_test"></div>
+        <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
+          <button class="btn" onclick="testAudioTone(440,'both','maudio')">🔊 <span data-t="sound"></span></button>
+          <button class="btn" onclick="testMicMobile()">🎤 <span data-t="mic"></span></button>
+        </div>
+      </div>
+
+      <div class="test-card">
+        <div class="test-card-header">
+          <div class="test-card-title"><span class="test-card-icon">📳</span> <span data-t="vibration"></span></div>
+          <div class="status-dot" id="dot-vibe"></div>
+        </div>
+        <div class="test-result" id="res-vibe" data-t-init="press_test"></div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button class="btn" onclick="testVibration([200])">▶ <span data-t="vibe_short"></span></button>
+          <button class="btn" onclick="testVibration([200,100,200,100,400])">▶ <span data-t="vibe_pattern"></span></button>
+        </div>
+      </div>
+
+      <div class="test-card">
+        <div class="test-card-header">
+          <div class="test-card-title"><span class="test-card-icon">📍</span> <span data-t="gps"></span></div>
+          <div class="status-dot" id="dot-gps"></div>
+        </div>
+        <div class="test-result" id="res-gps" data-t-init="press_test"></div>
+        <button class="btn" onclick="testGPS()">▶ <span data-t="run_test"></span></button>
+      </div>
+
+      <div class="test-card">
+        <div class="test-card-header">
+          <div class="test-card-title"><span class="test-card-icon">🖥️</span> <span data-t="display"></span></div>
+          <div class="status-dot" id="dot-mdisp"></div>
+        </div>
+        <div class="test-result" id="res-mdisp" data-t-init="press_test"></div>
+        <button class="btn" onclick="testDisplay('dot-mdisp','res-mdisp')">▶ <span data-t="run_display"></span></button>
+      </div>
+
+    </div>
+    <div class="section-title" data-t="manual_check"></div>
+    <div class="checklist" id="checklist-mobile"></div>
+  </div>
+
+  <!-- SCORE -->
+  <div class="score-panel" id="scorePanel">
+    <div>
+      <div class="score-number" id="scoreNum">—</div>
+      <div class="score-label" data-t="overall_score"></div>
+    </div>
+    <div>
+      <div class="score-verdict" id="scoreVerdict" data-t="start_tests"></div>
+      <div class="score-sub" id="scoreSub" data-t="score_hint"></div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <button class="btn primary" onclick="recalcScore()">↻ <span data-t="refresh_score"></span></button>
+      <button class="btn" onclick="window.print()">🖨 <span data-t="print"></span></button>
+    </div>
+  </div>
+</main>
+
+<script>
+// ═══════════ TRANSLATIONS ═══════════
+const T = {
+  bg: {
+    laptop:'Лаптоп', phone:'Телефон', score:'Резултат',
+    si_cpu:'Ядра CPU', si_ram:'RAM', si_screen:'Екран', si_platform:'Платформа',
+    si_lang:'Език / Часова зона', si_storage:'Съхранение', si_gpu:'GPU', si_net:'Мрежа',
+    auto_tests:'Автоматични тестове', manual_check:'Ръчна проверка',
+    battery:'Батерия', display:'Дисплей', audio_out:'Звук (изход)', mic:'Микрофон',
+    camera:'Камера', gpu:'GPU / WebGL', keyboard:'Клавиатура', network:'Мрежа / WiFi',
+    touchscreen:'Тъчскрийн', gyro:'Гироскоп / Акс.', audio_mic:'Звук / Микрофон',
+    vibration:'Вибрация', gps:'GPS / Локация',
+    run_test:'Тест', run_display:'Тест (цветни екрани)', run_gyro:'Тест (завъртете устройство)',
+    activate:'Активирай', clear:'Изчисти', stop:'Стоп',
+    left:'Ляво', right:'Дясно', both:'Двете', sound:'Звук',
+    cam_back:'Задна', cam_front:'Предна',
+    vibe_short:'Кратко', vibe_pattern:'Паtern',
+    press_test:'Натиснете за тест', keyboard_hint:'Натиснете бутона, после пишете',
+    touch_here:'Докоснете тук с пръсти',
+    overall_score:'Общ резултат', start_tests:'Стартирайте тестовете',
+    score_hint:'Изпълнете автоматичните тестове и попълнете ръчния чеклист за пълна оценка.',
+    refresh_score:'Обнови резултат', print:'Принт / PDF',
+    // Screen colors
+    sc_white:'БЯЛО — Търсете мъртви пиксели', sc_black:'ЧЕРНО — Търсете светли точки',
+    sc_red:'ЧЕРВЕНО — Равномерност', sc_green:'ЗЕЛЕНО — Равномерност',
+    sc_blue:'СИНЬО — Равномерност', sc_gray:'СИВО — Контраст',
+    sc_esc:'Натиснете за следващ цвят • ESC за изход',
+    // Verdicts
+    v_great:'✅ Добро устройство', v_ok:'⚠️ Приемливо', v_risky:'⚠️ Рисково', v_reject:'❌ Откажете покупката',
+    v_great_sub:'По-голямата част от тестовете преминаха успешно. Устройството изглежда в добро техническо състояние.',
+    v_ok_sub:'Има някои предупреждения. Проверете внимателно предупредителните точки преди покупка.',
+    v_risky_sub:'Множество проблеми. Договорете значителна отстъпка или потърсете друго устройство.',
+    v_reject_sub:'Твърде много дефекти. Устройството не е в добро техническо състояние.',
+    // Battery
+    b_charging:'⚡ Зарежда се', b_on_battery:'🔋 На батерия',
+    b_good:'✅ Добра', b_mid:'⚠️ Средна', b_bad:'❌ Слаба',
+    b_check_os:'Проверете здравето в OS',
+    // Audio
+    a_left:'← Ляв канал', a_right:'→ Десен канал', a_both:'← → Двата канала',
+    a_error:'❌ Web Audio API грешка',
+    // Mic
+    mic_active:'✅ Микрофон активен · Говорете...',
+    mic_denied:'❌ Достъпът отказан', mic_missing:'❌ Микрофонът не е открит',
+    // Cam
+    cam_denied:'❌ Достъпът отказан', cam_missing:'❌ Камерата не е открита',
+    cam_active_back:'✅ Задна камера активна', cam_active_front:'✅ Предна камера активна',
+    // GPU
+    gpu_no:'❌ WebGL не се поддържа',
+    // Keyboard
+    key_active:'✅ Активен · Тествайте ВСИЧКИ клавиши',
+    // Network
+    net_offline:'❌ Офлайн — WiFi/Ethernet не работи',
+    net_ok:'✅ Онлайн · Пинг ~', net_cors:'⚠️ Онлайн, но заявката е блокирана от CORS',
+    // Touch
+    touch_none:'❌ Тъчскрийн не е открит', touch_ok:'✅ точки поддържани · Докоснете зоната',
+    touch_fingers:' едновременни докосвания',
+    // Gyro
+    gyro_none:'❌ Сензори не е открит', gyro_wait:'Завъртете устройството...',
+    gyro_ios:'⚠️ Няма данни (нужно е разрешение на iOS)',
+    // Vibration
+    vibe_none:'❌ Вибрацията не се поддържа',
+    vibe_ok:'✅ Вибрация активирана · Усещате ли я?',
+    // GPS
+    gps_none:'❌ Геолокацията не се поддържа',
+    gps_ok:'✅ GPS работи · Точност: ~', gps_denied:'❌ Достъпът отказан',
+    gps_pos:'❌ Позицията недостъпна', gps_timeout:'❌ Timeout',
+    // Display done
+    disp_done:'✅ Тест завършен ·',
+    // Checklist laptop
+    cl: [
+      ['Зарядно и кабел са оригинални','Проверете марката и щекера'],
+      ['Шарнири се отварят плавно','Без хрускане, без люлеене'],
+      ['Дъното и капакът без пукнатини','Огледайте всички ъгли'],
+      ['USB портове — пасват стегнато','Тествайте с флашка/кабел'],
+      ['HDMI / DisplayPort работи','Нужен е монитор или адаптер'],
+      ['Тъчпад — движение и клик','Тествайте двата бутона + скрол'],
+      ['WiFi открива мрежи','Проверете в OS мениджъра'],
+      ['Bluetooth се включва','В настройките на OS'],
+      ['SSD/HDD без грешки (CrystalDiskInfo)','Health: Good, без reallocated sectors'],
+      ['Батерия: цикли и капацитет в OS','Windows: powercfg /batteryreport | macOS: coconutBattery'],
+      ['BIOS/UEFI без парола','Рестартирайте и натиснете F2/Del'],
+      ['Windows/macOS активиран легитимно','Проверете в Настройки → Система'],
+      ['Вентилатор работи без шум','Натоварете процесора — HWiNFO64'],
+      ['Термо паста не е изгоряла','Темп. под натоварване < 85°C'],
+    ],
+    // Checklist mobile
+    cm: [
+      ['Зарядно и кабел оригинални','Apple Lightning/USB-C или оригинален Android'],
+      ['Корпусът без пукнатини / вдлъбнатини','Рамка, гръб, ъгли'],
+      ['Стъклото без пукнатини','Проверете срещу светлина'],
+      ['Бутони — силата на звука и Power','Тествайте физическо натискане'],
+      ['SIM слот без повреди','Игла + SIM тест'],
+      ['Слушалков жак (ако има)','Включете слушалки'],
+      ['Face ID / пръстов отпечатък','Регистрирайте и тествайте'],
+      ['WiFi открива мрежи','Настройки → WiFi'],
+      ['Bluetooth се свързва','Настройки → Bluetooth'],
+      ['NFC работи (ако има)','Проверете с NFC тестер app'],
+      ['iCloud / Google акаунт изчистен','Factory reset + без чужди акаунти'],
+      ['IMEI не е блокиран','imei.info или оператор проверка'],
+    ],
+    ok_btn:'OK', nok_btn:'НЕ', skip_btn:'— —',
+  },
+  en: {
+    laptop:'Laptop', phone:'Phone', score:'Score',
+    si_cpu:'CPU Cores', si_ram:'RAM', si_screen:'Screen', si_platform:'Platform',
+    si_lang:'Language / Timezone', si_storage:'Storage', si_gpu:'GPU', si_net:'Network',
+    auto_tests:'Automatic Tests', manual_check:'Manual Checklist',
+    battery:'Battery', display:'Display', audio_out:'Audio Output', mic:'Microphone',
+    camera:'Camera', gpu:'GPU / WebGL', keyboard:'Keyboard', network:'Network / WiFi',
+    touchscreen:'Touchscreen', gyro:'Gyroscope / Accel.', audio_mic:'Audio / Microphone',
+    vibration:'Vibration', gps:'GPS / Location',
+    run_test:'Test', run_display:'Test (color screens)', run_gyro:'Test (rotate device)',
+    activate:'Activate', clear:'Clear', stop:'Stop',
+    left:'Left', right:'Right', both:'Both', sound:'Sound',
+    cam_back:'Rear', cam_front:'Front',
+    vibe_short:'Short', vibe_pattern:'Pattern',
+    press_test:'Press to test', keyboard_hint:'Activate then type any keys',
+    touch_here:'Touch here with fingers',
+    overall_score:'Overall Score', start_tests:'Run the tests',
+    score_hint:'Complete auto tests and the manual checklist for a full evaluation.',
+    refresh_score:'Refresh Score', print:'Print / PDF',
+    sc_white:'WHITE — Look for dead pixels', sc_black:'BLACK — Look for bright spots',
+    sc_red:'RED — Check uniformity', sc_green:'GREEN — Check uniformity',
+    sc_blue:'BLUE — Check uniformity', sc_gray:'GRAY — Check contrast',
+    sc_esc:'Click for next colour • ESC to exit',
+    v_great:'✅ Good Device', v_ok:'⚠️ Acceptable', v_risky:'⚠️ Risky', v_reject:'❌ Avoid Purchase',
+    v_great_sub:'Most tests passed. The device appears to be in good technical condition.',
+    v_ok_sub:'Some warnings detected. Carefully review the flagged issues before buying.',
+    v_risky_sub:'Multiple issues found. Negotiate a significant discount or look elsewhere.',
+    v_reject_sub:'Too many defects. The device is not in good technical condition.',
+    b_charging:'⚡ Charging', b_on_battery:'🔋 On battery',
+    b_good:'✅ Good', b_mid:'⚠️ Fair', b_bad:'❌ Poor',
+    b_check_os:'Check health in OS',
+    a_left:'← Left channel', a_right:'→ Right channel', a_both:'← → Both channels',
+    a_error:'❌ Web Audio API error',
+    mic_active:'✅ Microphone active · Speak now...',
+    mic_denied:'❌ Permission denied', mic_missing:'❌ Microphone not found',
+    cam_denied:'❌ Permission denied', cam_missing:'❌ Camera not found',
+    cam_active_back:'✅ Rear camera active', cam_active_front:'✅ Front camera active',
+    gpu_no:'❌ WebGL not supported',
+    key_active:'✅ Active · Test ALL keys',
+    net_offline:'❌ Offline — WiFi/Ethernet not working',
+    net_ok:'✅ Online · Ping ~', net_cors:'⚠️ Online, but request blocked by CORS',
+    touch_none:'❌ Touchscreen not detected', touch_ok:'✅ points supported · Touch the area',
+    touch_fingers:' simultaneous touches',
+    gyro_none:'❌ No sensors detected', gyro_wait:'Rotate your device...',
+    gyro_ios:'⚠️ No data (iOS requires permission)',
+    vibe_none:'❌ Vibration not supported',
+    vibe_ok:'✅ Vibration triggered · Did you feel it?',
+    gps_none:'❌ Geolocation not supported',
+    gps_ok:'✅ GPS working · Accuracy: ~', gps_denied:'❌ Permission denied',
+    gps_pos:'❌ Position unavailable', gps_timeout:'❌ Timeout',
+    disp_done:'✅ Test complete ·',
+    cl: [
+      ['Charger and cable are original','Check brand and connector'],
+      ['Hinges open smoothly','No cracking, no wobble'],
+      ['Base and lid have no cracks','Inspect all corners'],
+      ['USB ports — firm fit','Test with a flash drive/cable'],
+      ['HDMI / DisplayPort works','Requires a monitor or adapter'],
+      ['Touchpad — movement and click','Test both buttons + scroll'],
+      ['WiFi detects networks','Check in OS network manager'],
+      ['Bluetooth turns on','In OS settings'],
+      ['SSD/HDD no errors (CrystalDiskInfo)','Health: Good, no reallocated sectors'],
+      ['Battery: cycle count & capacity in OS','Windows: powercfg /batteryreport | macOS: coconutBattery'],
+      ['BIOS/UEFI has no password','Restart and press F2/Del'],
+      ['Windows/macOS legitimately activated','Check Settings → System'],
+      ['Fan works without noise','Stress the CPU — HWiNFO64'],
+      ['Thermal paste not degraded','Temp under load < 85°C'],
+    ],
+    cm: [
+      ['Charger and cable are original','Apple Lightning/USB-C or original Android'],
+      ['Body has no cracks or dents','Frame, back, corners'],
+      ['Glass has no cracks','Check against light'],
+      ['Buttons — volume and power','Test physical press feel'],
+      ['SIM slot undamaged','Use ejector pin + test SIM'],
+      ['Headphone jack (if present)','Plug in headphones'],
+      ['Face ID / fingerprint works','Register and test'],
+      ['WiFi detects networks','Settings → WiFi'],
+      ['Bluetooth connects','Settings → Bluetooth'],
+      ['NFC works (if present)','Check with NFC tester app'],
+      ['iCloud / Google account cleared','Factory reset + no foreign accounts'],
+      ['IMEI not blocked','imei.info or carrier check'],
+    ],
+    ok_btn:'OK', nok_btn:'NO', skip_btn:'— —',
+  }
+};
+
+let lang = 'bg';
+
+function t(key) { return T[lang][key] || key; }
+
+function applyLang() {
+  document.documentElement.lang = lang;
+  // data-t elements
+  document.querySelectorAll('[data-t]').forEach(el => {
+    const key = el.getAttribute('data-t');
+    el.textContent = t(key);
+  });
+  // data-t-init (only if not yet tested)
+  document.querySelectorAll('[data-t-init]').forEach(el => {
+    if (!el.classList.contains('good') && !el.classList.contains('bad') && !el.classList.contains('warn')) {
+      el.textContent = t(el.getAttribute('data-t-init'));
+    }
+  });
+  // Touch area text
+  const ta = document.querySelector('#touchArea span');
+  if (ta) ta.textContent = t('touch_here');
+  // Rebuild checklists
+  buildChecklist(t('cl'), 'checklist-laptop');
+  buildChecklist(t('cm'), 'checklist-mobile');
+  // Screen overlay esc text
+  const escEl = document.getElementById('screenEsc');
+  if (escEl) escEl.textContent = t('sc_esc');
+}
+
+function setLang(l) {
+  lang = l;
+  document.querySelectorAll('.lang-tab').forEach((b,i) => b.classList.toggle('active', (i===0&&l==='bg')||(i===1&&l==='en')));
+  applyLang();
+}
+
+// ═══════════ MODE SWITCH ═══════════
+let currentMode = 'laptop';
+function setMode(m) {
+  currentMode = m;
+  document.querySelectorAll('.mode-tab').forEach((tab,i) => tab.classList.toggle('active',(i===0&&m==='laptop')||(i===1&&m==='mobile')));
+  document.getElementById('laptopContent').classList.toggle('hidden', m!=='laptop');
+  document.getElementById('mobileContent').classList.toggle('hidden', m!=='mobile');
+  recalcScore();
+}
+
+// ═══════════ SYSTEM INFO ═══════════
+function loadSysInfo() {
+  document.getElementById('si-cpu').textContent = navigator.hardwareConcurrency + (lang==='bg'?' ядра':' cores');
+  document.getElementById('si-ram').textContent = (navigator.deviceMemory ? navigator.deviceMemory+' GB' : (lang==='bg'?'Неизв.':'N/A'));
+  document.getElementById('si-screen').textContent = screen.width+'×'+screen.height+' '+screen.colorDepth+'bit';
+  document.getElementById('si-platform').textContent = navigator.platform || (lang==='bg'?'Неизв.':'N/A');
+  document.getElementById('si-lang').textContent = navigator.language+' / '+Intl.DateTimeFormat().resolvedOptions().timeZone;
+  if (navigator.storage && navigator.storage.estimate) {
+    navigator.storage.estimate().then(e => {
+      document.getElementById('si-storage').textContent = (e.quota/1e9).toFixed(0)+' GB';
+    });
+  } else document.getElementById('si-storage').textContent = 'N/A';
+  const canvas = document.createElement('canvas');
+  const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+  if (gl) {
+    const dbg = gl.getExtension('WEBGL_debug_renderer_info');
+    document.getElementById('si-gpu').textContent = (dbg ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : 'WebGL OK').substring(0,38);
+  } else document.getElementById('si-gpu').textContent = lang==='bg'?'Без WebGL':'No WebGL';
+  const conn = navigator.connection;
+  if (conn) document.getElementById('si-net').textContent = (conn.effectiveType||'?')+' ~'+(conn.downlink||'?')+' Mbps';
+  else document.getElementById('si-net').textContent = navigator.onLine ? (lang==='bg'?'Онлайн':'Online') : (lang==='bg'?'Офлайн':'Offline');
+}
+
+// ═══════════ BATTERY ═══════════
+async function testBattery() {
+  const d = document.getElementById('dot-battery'), r = document.getElementById('res-battery');
+  d.className='status-dot running'; r.className='test-result'; r.textContent='...';
+  try {
+    const b = await navigator.getBattery();
+    const pct = Math.round(b.level*100);
+    document.getElementById('battery-fill').style.width = pct+'%';
+    document.getElementById('battery-pct').textContent = pct+'%';
+    if (pct<30) document.getElementById('battery-fill').style.background='var(--red)';
+    else if (pct<60) document.getElementById('battery-fill').style.background='var(--yellow)';
+    document.getElementById('battery-vis').style.display='flex';
+    const ch = b.charging ? t('b_charging') : t('b_on_battery');
+    const cls = pct>=60?'good':pct>=30?'warn':'bad';
+    const lbl = pct>=60?t('b_good'):pct>=30?t('b_mid'):t('b_bad');
+    d.className='status-dot '+(pct>=60?'pass':pct>=30?'warn':'fail');
+    r.className='test-result '+cls;
+    r.innerHTML=`${ch} · ${pct}%<br>${lbl} · ${t('b_check_os')}`;
+    addScore('battery', pct>=60?'pass':pct>=30?'warn':'fail');
+  } catch(e) {
+    d.className='status-dot warn'; r.className='test-result warn';
+    r.textContent='⚠️ '+(lang==='bg'?'API недостъпен':'API unavailable');
+    addScore('battery','warn');
+  }
+}
+
+async function testMobileBattery() {
+  const d=document.getElementById('dot-mbattery'),r=document.getElementById('res-mbattery');
+  d.className='status-dot running';
+  try {
+    const b=await navigator.getBattery(); const pct=Math.round(b.level*100);
+    document.getElementById('mbattery-fill').style.width=pct+'%';
+    document.getElementById('mbattery-pct').textContent=pct+'%';
+    document.getElementById('mbattery-vis').style.display='flex';
+    const cls=pct>=60?'good':pct>=30?'warn':'bad';
+    d.className='status-dot '+(pct>=60?'pass':pct>=30?'warn':'fail');
+    r.className='test-result '+cls;
+    r.textContent=`${pct}% · ${b.charging?t('b_charging'):t('b_on_battery')}`;
+    addScore('mbattery',pct>=60?'pass':pct>=30?'warn':'fail');
+  } catch(e) {
+    d.className='status-dot warn'; r.className='test-result warn';
+    r.textContent='⚠️ '+(lang==='bg'?'API недостъпен':'API unavailable');
+  }
+}
+
+// ═══════════ DISPLAY ═══════════
+const screenColors=[
+  {bg:'white',key:'sc_white',fg:'black'},{bg:'black',key:'sc_black',fg:'white'},
+  {bg:'red',key:'sc_red',fg:'white'},{bg:'#00cc00',key:'sc_green',fg:'black'},
+  {bg:'blue',key:'sc_blue',fg:'white'},{bg:'gray',key:'sc_gray',fg:'black'},
+];
+let screenIdx=0, screenDotId='dot-display', screenResId='res-display';
+function testDisplay(dotId,resId) {
+  screenDotId=dotId||'dot-display'; screenResId=resId||'res-display';
+  screenIdx=0;
+  const ov=document.getElementById('screenOverlay');
+  ov.style.background=screenColors[0].bg;
+  document.getElementById('screenColorName').style.color=screenColors[0].fg;
+  document.getElementById('screenColorName').textContent=t(screenColors[0].key);
+  document.getElementById('screenEsc').textContent=t('sc_esc');
+  ov.classList.add('active');
+  document.getElementById(screenDotId).className='status-dot running';
+}
+function nextScreenColor() {
+  screenIdx++;
+  if (screenIdx>=screenColors.length) {
+    document.getElementById('screenOverlay').classList.remove('active');
+    document.getElementById(screenDotId).className='status-dot pass';
+    const r=document.getElementById(screenResId);
+    r.className='test-result good';
+    r.textContent=`${t('disp_done')} ${screen.width}×${screen.height} · ${screen.colorDepth}bit`;
+    addScore(screenDotId.replace('dot-',''),'pass');
+    return;
+  }
+  const c=screenColors[screenIdx];
+  const ov=document.getElementById('screenOverlay');
+  ov.style.background=c.bg;
+  document.getElementById('screenColorName').style.color=c.fg;
+  document.getElementById('screenColorName').textContent=t(c.key);
+}
+document.addEventListener('keydown', e=>{
+  if (e.key==='Escape') document.getElementById('screenOverlay').classList.remove('active');
+  if (document.getElementById('screenOverlay').classList.contains('active')&&e.key!=='Escape') nextScreenColor();
+});
+
+// ═══════════ AUDIO ═══════════
+let audioCtx=null;
+function getAudioCtx(){if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)();return audioCtx;}
+function testAudioTone(freq,ch,dotId){
+  const r=document.getElementById('res-'+dotId), d=document.getElementById('dot-'+dotId);
+  try {
+    const ctx=getAudioCtx(); const osc=ctx.createOscillator(); const gain=ctx.createGain();
+    const panner=ctx.createStereoPanner?ctx.createStereoPanner():null;
+    osc.connect(gain);
+    if(panner){gain.connect(panner);panner.connect(ctx.destination);panner.pan.value=ch==='left'?-1:ch==='right'?1:0;}
+    else gain.connect(ctx.destination);
+    osc.frequency.value=freq; osc.type='sine';
+    gain.gain.setValueAtTime(0.3,ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+1.5);
+    osc.start(); osc.stop(ctx.currentTime+1.5);
+    d.className='status-dot pass'; r.className='test-result good';
+    const side=ch==='left'?t('a_left'):ch==='right'?t('a_right'):t('a_both');
+    r.textContent=`✅ ${side} · ${freq} Hz`;
+    addScore(dotId,'pass');
+  } catch(e){
+    d.className='status-dot fail'; r.className='test-result bad';
+    r.textContent=t('a_error'); addScore(dotId,'fail');
+  }
+}
+
+// ═══════════ MICROPHONE ═══════════
+let micStream=null;
+async function testMic(){
+  const d=document.getElementById('dot-mic'),r=document.getElementById('res-mic');
+  const canvas=document.getElementById('audioCanvas');
+  d.className='status-dot running'; r.textContent='...';
+  try {
+    micStream=await navigator.mediaDevices.getUserMedia({audio:true});
+    const ctx=getAudioCtx(); const src=ctx.createMediaStreamSource(micStream);
+    const analyser=ctx.createAnalyser(); analyser.fftSize=256; src.connect(analyser);
+    canvas.style.display='block';
+    const cCtx=canvas.getContext('2d'); const buf=new Uint8Array(analyser.frequencyBinCount);
+    d.className='status-dot pass'; r.className='test-result good'; r.textContent=t('mic_active');
+    addScore('mic','pass');
+    function draw(){
+      requestAnimationFrame(draw); analyser.getByteFrequencyData(buf);
+      canvas.width=canvas.offsetWidth; canvas.height=canvas.offsetHeight;
+      cCtx.clearRect(0,0,canvas.width,canvas.height);
+      const bw=canvas.width/buf.length;
+      for(let i=0;i<buf.length;i++){
+        const h=(buf[i]/255)*canvas.height;
+        cCtx.fillStyle=`hsl(${190+i},80%,50%)`;
+        cCtx.fillRect(i*bw,canvas.height-h,bw-1,h);
+      }
+    }
+    draw();
+  } catch(e){
+    d.className='status-dot fail'; r.className='test-result bad';
+    r.textContent=e.name==='NotAllowedError'?t('mic_denied'):t('mic_missing');
+    addScore('mic','fail');
+  }
+}
+async function testMicMobile(){
+  const d=document.getElementById('dot-maudio'),r=document.getElementById('res-maudio');
+  d.className='status-dot running'; r.textContent='...';
+  try {
+    const stream=await navigator.mediaDevices.getUserMedia({audio:true});
+    stream.getTracks().forEach(t=>t.stop());
+    d.className='status-dot pass'; r.className='test-result good';
+    r.textContent=lang==='bg'?'✅ Микрофон работи':'✅ Microphone works';
+    addScore('maudio','pass');
+  } catch(e){
+    d.className='status-dot fail'; r.className='test-result bad';
+    r.textContent=t('mic_denied'); addScore('maudio','fail');
+  }
+}
+
+// ═══════════ CAMERA ═══════════
+let camStream=null;
+async function testCam(){
+  const d=document.getElementById('dot-cam'),r=document.getElementById('res-cam'),v=document.getElementById('camVideo');
+  d.className='status-dot running'; r.textContent='...';
+  try {
+    camStream=await navigator.mediaDevices.getUserMedia({video:true});
+    v.srcObject=camStream; v.style.display='block';
+    d.className='status-dot pass'; r.className='test-result good';
+    const s=camStream.getVideoTracks()[0].getSettings();
+    r.textContent=`✅ ${s.width||'?'}×${s.height||'?'} · ${s.frameRate||'?'}fps`;
+    addScore('cam','pass');
+  } catch(e){
+    d.className='status-dot fail'; r.className='test-result bad';
+    r.textContent=e.name==='NotAllowedError'?t('cam_denied'):t('cam_missing');
+    addScore('cam','fail');
+  }
+}
+function stopCam(){if(camStream){camStream.getTracks().forEach(t=>t.stop());camStream=null;}document.getElementById('camVideo').style.display='none';}
+
+let mcamStream=null;
+async function testMCam(facing){
+  const d=document.getElementById('dot-mcam'),r=document.getElementById('res-mcam'),v=document.getElementById('mcamVideo');
+  if(mcamStream) mcamStream.getTracks().forEach(t=>t.stop());
+  d.className='status-dot running'; r.textContent='...';
+  try {
+    mcamStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:facing}});
+    v.srcObject=mcamStream; v.style.display='block';
+    d.className='status-dot pass'; r.className='test-result good';
+    r.textContent=facing==='environment'?t('cam_active_back'):t('cam_active_front');
+    addScore('mcam','pass');
+  } catch(e){
+    d.className='status-dot fail'; r.className='test-result bad';
+    r.textContent=t('cam_denied'); addScore('mcam','fail');
+  }
+}
+function stopMCam(){if(mcamStream){mcamStream.getTracks().forEach(t=>t.stop());mcamStream=null;}document.getElementById('mcamVideo').style.display='none';}
+
+// ═══════════ GPU ═══════════
+function testGPU(){
+  const d=document.getElementById('dot-gpu'),r=document.getElementById('res-gpu');
+  d.className='status-dot running';
+  const canvas=document.createElement('canvas');
+  const gl=canvas.getContext('webgl')||canvas.getContext('experimental-webgl');
+  if(!gl){d.className='status-dot fail';r.className='test-result bad';r.textContent=t('gpu_no');addScore('gpu','fail');return;}
+  const dbg=gl.getExtension('WEBGL_debug_renderer_info');
+  const renderer=dbg?gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL):'WebGL OK';
+  d.className='status-dot pass'; r.className='test-result good';
+  r.innerHTML=`✅ WebGL OK<br><span style="font-size:11px;color:var(--muted)">${renderer.substring(0,50)}</span>`;
+  addScore('gpu','pass');
+}
+
+// ═══════════ KEYBOARD ═══════════
+let keyboardActive=false; const keySet=new Set();
+function startKeyboard(){
+  keyboardActive=true;
+  const disp=document.getElementById('keyDisplay'); disp.style.display='block'; disp.textContent='...';
+  document.getElementById('res-keyboard').className='test-result good';
+  document.getElementById('res-keyboard').textContent=t('key_active');
+  document.getElementById('dot-keyboard').className='status-dot pass';
+  addScore('keyboard','pass');
+}
+function clearKeyboard(){keySet.clear();document.getElementById('keyDisplay').textContent='';}
+document.addEventListener('keydown',e=>{
+  if(!keyboardActive) return;
+  if(document.getElementById('screenOverlay').classList.contains('active')) return;
+  e.preventDefault(); keySet.add(e.key);
+  document.getElementById('keyDisplay').textContent=[...keySet].slice(-30).join(' · ');
+});
+
+// ═══════════ NETWORK ═══════════
+async function testNetwork(){
+  const d=document.getElementById('dot-net'),r=document.getElementById('res-net');
+  d.className='status-dot running'; r.textContent='...';
+  if(!navigator.onLine){
+    d.className='status-dot fail'; r.className='test-result bad';
+    r.textContent=t('net_offline'); addScore('net','fail'); return;
+  }
+  const conn=navigator.connection; const t0=Date.now();
+  try {
+    await fetch('https://www.google.com/favicon.ico?_='+t0,{mode:'no-cors',cache:'no-store'});
+    const ms=Date.now()-t0;
+    d.className='status-dot pass'; r.className='test-result good';
+    let info=`${t('net_ok')}${ms}ms`;
+    if(conn) info+=` · ${conn.effectiveType||''} ~${conn.downlink||'?'}Mbps`;
+    r.textContent=info; addScore('net','pass');
+  } catch(e){
+    d.className='status-dot warn'; r.className='test-result warn';
+    r.textContent=t('net_cors'); addScore('net','warn');
+  }
+}
+
+// ═══════════ TOUCH ═══════════
+function testTouch(){
+  const d=document.getElementById('dot-touch'),r=document.getElementById('res-touch');
+  const max=navigator.maxTouchPoints||0;
+  if(!max){
+    d.className='status-dot fail'; r.className='test-result bad';
+    r.textContent=t('touch_none'); addScore('touch','fail'); return;
+  }
+  const area=document.getElementById('touchArea');
+  area.innerHTML='';
+  area.addEventListener('touchstart',handleTouch,{passive:true});
+  area.addEventListener('touchmove',handleTouch,{passive:true});
+  d.className='status-dot pass'; r.className='test-result good';
+  r.textContent=`✅ ${max} ${t('touch_ok')}`;
+  addScore('touch','pass');
+}
+function handleTouch(e){
+  const area=document.getElementById('touchArea');
+  const r=document.getElementById('res-touch');
+  const rect=area.getBoundingClientRect();
+  area.innerHTML='';
+  for(let touch of e.touches){
+    const dot=document.createElement('div'); dot.className='touch-dot';
+    dot.style.left=(touch.clientX-rect.left)+'px'; dot.style.top=(touch.clientY-rect.top)+'px';
+    dot.style.background=`hsl(${touch.identifier*60},80%,60%)`; area.appendChild(dot);
+  }
+  r.textContent=`✅ ${e.touches.length}${t('touch_fingers')}`;
+}
+
+// ═══════════ GYRO ═══════════
+function testGyro(){
+  const d=document.getElementById('dot-gyro'),r=document.getElementById('res-gyro');
+  if(!window.DeviceMotionEvent&&!window.DeviceOrientationEvent){
+    d.className='status-dot fail'; r.className='test-result bad';
+    r.textContent=t('gyro_none'); addScore('gyro','fail'); return;
+  }
+  d.className='status-dot running'; r.textContent=t('gyro_wait');
+  let count=0;
+  function onMotion(e){
+    count++; const acc=e.acceleration;
+    if(acc&&count<=5){
+      r.className='test-result good';
+      r.textContent=`✅ X=${(acc.x||0).toFixed(1)} Y=${(acc.y||0).toFixed(1)} Z=${(acc.z||0).toFixed(1)}`;
+      d.className='status-dot pass'; addScore('gyro','pass');
+    }
+    if(count>20) window.removeEventListener('devicemotion',onMotion);
+  }
+  window.addEventListener('devicemotion',onMotion);
+  setTimeout(()=>{
+    window.removeEventListener('devicemotion',onMotion);
+    if(!count){d.className='status-dot warn';r.className='test-result warn';r.textContent=t('gyro_ios');addScore('gyro','warn');}
+  },3000);
+}
+
+// ═══════════ VIBRATION ═══════════
+function testVibration(pattern){
+  const d=document.getElementById('dot-vibe'),r=document.getElementById('res-vibe');
+  if(!navigator.vibrate){
+    d.className='status-dot fail'; r.className='test-result bad';
+    r.textContent=t('vibe_none'); addScore('vibe','fail'); return;
+  }
+  navigator.vibrate(pattern);
+  d.className='status-dot pass'; r.className='test-result good';
+  r.textContent=t('vibe_ok'); addScore('vibe','pass');
+}
+
+// ═══════════ GPS ═══════════
+function testGPS(){
+  const d=document.getElementById('dot-gps'),r=document.getElementById('res-gps');
+  d.className='status-dot running'; r.textContent='...';
+  if(!navigator.geolocation){
+    d.className='status-dot fail'; r.className='test-result bad';
+    r.textContent=t('gps_none'); addScore('gps','fail'); return;
+  }
+  navigator.geolocation.getCurrentPosition(
+    pos=>{
+      d.className='status-dot pass'; r.className='test-result good';
+      r.textContent=`${t('gps_ok')}${pos.coords.accuracy.toFixed(0)}m`;
+      addScore('gps','pass');
+    },
+    err=>{
+      d.className='status-dot fail'; r.className='test-result bad';
+      r.textContent=err.code===1?t('gps_denied'):err.code===2?t('gps_pos'):t('gps_timeout');
+      addScore('gps','fail');
+    },
+    {timeout:10000,enableHighAccuracy:true}
+  );
+}
+
+// ═══════════ SCORE ═══════════
+const scores={};
+function addScore(key,val){scores[key]=val;recalcScore();}
+function recalcScore(){
+  const vals=Object.values(scores); if(!vals.length) return;
+  const pass=vals.filter(v=>v==='pass').length;
+  const warn=vals.filter(v=>v==='warn').length;
+  const total=vals.length;
+  const pct=Math.round(((pass+warn*0.5)/total)*100);
+  const el=document.getElementById('scoreNum');
+  el.textContent=pct+'%';
+  el.className='score-number '+(pct>=75?'good':pct>=50?'ok':'bad');
+  document.getElementById('headerScore').textContent=pct+'%';
+  let vk,sk;
+  if(pct>=85){vk='v_great';sk='v_great_sub';}
+  else if(pct>=65){vk='v_ok';sk='v_ok_sub';}
+  else if(pct>=40){vk='v_risky';sk='v_risky_sub';}
+  else{vk='v_reject';sk='v_reject_sub';}
+  document.getElementById('scoreVerdict').textContent=t(vk);
+  document.getElementById('scoreSub').textContent=t(sk);
+}
+
+// ═══════════ CHECKLIST ═══════════
+const checkResults={};
+function buildChecklist(items,containerId){
+  const c=document.getElementById(containerId); c.innerHTML='';
+  items.forEach((item,i)=>{
+    const div=document.createElement('div'); div.className='check-item';
+    div.innerHTML=`
+      <div class="check-item-text">${item[0]}<small>${item[1]}</small></div>
+      <div class="check-buttons">
+        <button class="check-btn ok" onclick="setCheck('${containerId}',${i},'ok',this)">${t('ok_btn')}</button>
+        <button class="check-btn nok" onclick="setCheck('${containerId}',${i},'nok',this)">${t('nok_btn')}</button>
+        <button class="check-btn skip" onclick="setCheck('${containerId}',${i},'skip',this)">${t('skip_btn')}</button>
+      </div>`;
+    c.appendChild(div);
+  });
+}
+function setCheck(listId,idx,val,btn){
+  const key=listId+'_'+idx; checkResults[key]=val;
+  btn.parentElement.querySelectorAll('.check-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  const nok=Object.values(checkResults).filter(v=>v==='nok').length;
+  const ok=Object.values(checkResults).filter(v=>v==='ok').length;
+  addScore('check_manual',ok>nok?'pass':'warn');
+}
+
+// ═══════════ INIT ═══════════
+applyLang();
+loadSysInfo();
+</script>
+</body>
+</html>
