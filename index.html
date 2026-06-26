@@ -260,6 +260,9 @@
           <button class="btn" onclick="testMCam('user')">▶ <span data-t="cam_front"></span></button>
           <button class="btn danger small" onclick="stopMCam()">■ <span data-t="stop"></span></button>
         </div>
+        <div style="margin-top:8px;font-size:11px;color:var(--muted);line-height:1.4">
+          💡 <span data-t="cam_android_tip"></span>
+        </div>
       </div>
 
       <div class="test-card">
@@ -369,8 +372,10 @@ const T = {
     // Mic
     mic_active:'✅ Микрофон активен · Говорете...',
     mic_denied:'❌ Достъпът отказан', mic_missing:'❌ Микрофонът не е открит',
+    mic_overlay:'❌ Android блокира — затворете floating bubbles/overlays и опитайте отново',
     // Cam
-    cam_denied:'❌ Достъпът отказан', cam_missing:'❌ Камерата не е открита',
+    cam_android_tip:'Android: Затворете chat балончета или floating overlay преди тест',
+    cam_overlay:'❌ Android блокира достъпа — затворете floating bubble/overlay приложения (чат балончета, screen recorder) и опитайте отново',
     cam_active_back:'✅ Задна камера активна', cam_active_front:'✅ Предна камера активна',
     // GPU
     gpu_no:'❌ WebGL не се поддържа',
@@ -463,7 +468,9 @@ const T = {
     a_error:'❌ Web Audio API error',
     mic_active:'✅ Microphone active · Speak now...',
     mic_denied:'❌ Permission denied', mic_missing:'❌ Microphone not found',
-    cam_denied:'❌ Permission denied', cam_missing:'❌ Camera not found',
+    mic_overlay:'❌ Android blocked — close floating bubbles/overlays and try again',
+    cam_android_tip:'Android: Close chat bubbles or floating overlays before testing',
+    cam_overlay:'❌ Android blocked access — close any floating bubbles/overlays (chat bubbles, screen recorder) then try again',
     cam_active_back:'✅ Rear camera active', cam_active_front:'✅ Front camera active',
     gpu_no:'❌ WebGL not supported',
     key_active:'✅ Active · Test ALL keys',
@@ -751,7 +758,8 @@ async function testCam(){
     addScore('cam','pass');
   } catch(e){
     d.className='status-dot fail'; r.className='test-result bad';
-    r.textContent=e.name==='NotAllowedError'?t('cam_denied'):t('cam_missing');
+    const isOverlay = e.name==='NotAllowedError' && e.message && e.message.toLowerCase().includes('overlay');
+    r.innerHTML = (isOverlay ? t('cam_overlay') : e.name==='NotAllowedError' ? t('cam_denied') : t('cam_missing'));
     addScore('cam','fail');
   }
 }
@@ -770,7 +778,9 @@ async function testMCam(facing){
     addScore('mcam','pass');
   } catch(e){
     d.className='status-dot fail'; r.className='test-result bad';
-    r.textContent=t('cam_denied'); addScore('mcam','fail');
+    const isOverlay = e.name==='NotAllowedError' && e.message && e.message.toLowerCase().includes('overlay');
+    r.innerHTML = isOverlay ? t('cam_overlay') : t('cam_denied');
+    addScore('mcam','fail');
   }
 }
 function stopMCam(){if(mcamStream){mcamStream.getTracks().forEach(t=>t.stop());mcamStream=null;}document.getElementById('mcamVideo').style.display='none';}
