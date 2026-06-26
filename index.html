@@ -774,27 +774,32 @@ function stopCam(){if(camStream){camStream.getTracks().forEach(t=>t.stop());camS
 
 let mcamStream=null;
 function testMCam(facing){
-  const d=document.getElementById('dot-mcam'),r=document.getElementById('res-mcam'),v=document.getElementById('mcamVideo');
+  const d=document.getElementById('dot-mcam'),r=document.getElementById('res-mcam');
+  // Skip getUserMedia entirely on mobile — use native camera input
+  const isMobile = /Android|iPhone|iPad/i.test(navigator.userAgent);
+  if(isMobile){
+    d.className='status-dot running'; r.className='test-result';
+    r.textContent=lang==='bg'?'📷 Отваря камерата...':'📷 Opening camera...';
+    const inputId = facing==='environment'?'camFileBack':'camFileFront';
+    document.getElementById(inputId).click();
+    return;
+  }
+  // Desktop: use getUserMedia
+  const v=document.getElementById('mcamVideo');
   if(mcamStream) mcamStream.getTracks().forEach(t=>t.stop());
   d.className='status-dot running'; r.className='test-result'; r.textContent='...';
   navigator.mediaDevices.getUserMedia({video:{facingMode:facing}})
   .then(stream=>{
     mcamStream=stream; v.srcObject=stream; v.style.display='block';
     document.getElementById('mcamPhoto').style.display='none';
-    document.getElementById('camFallbackBtns').style.display='none';
     d.className='status-dot pass'; r.className='test-result good';
     r.textContent=facing==='environment'?t('cam_active_back'):t('cam_active_front');
     addScore('mcam','pass');
   })
   .catch(e=>{
-    d.className='status-dot warn'; r.className='test-result warn';
-    // Show fallback photo capture buttons
-    const fb=document.getElementById('camFallbackBtns');
-    fb.style.display='flex';
-    document.getElementById('camFallbackMsg').textContent=lang==='bg'
-      ?'getUserMedia блокиран — използвайте нативна камера:'
-      :'getUserMedia blocked — use native camera:';
-    r.textContent='⚠️ '+(lang==='bg'?'Опитайте с бутоните по-долу':'Try buttons below')+' · '+e.name;
+    d.className='status-dot fail'; r.className='test-result bad';
+    r.textContent='❌ '+e.name+': '+e.message;
+    addScore('mcam','fail');
   });
 }
 function onCamFile(input, facing){
