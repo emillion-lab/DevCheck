@@ -375,6 +375,7 @@ const T = {
     mic_overlay:'❌ Android блокира — затворете floating bubbles/overlays и опитайте отново',
     // Cam
     cam_android_tip:'Android: Затворете chat балончета или floating overlay преди тест',
+    cam_denied:'❌ Достъпът отказан', cam_missing:'❌ Камерата не е открита',
     cam_overlay:'❌ Android блокира достъпа — затворете floating bubble/overlay приложения (чат балончета, screen recorder) и опитайте отново',
     cam_active_back:'✅ Задна камера активна', cam_active_front:'✅ Предна камера активна',
     // GPU
@@ -470,6 +471,7 @@ const T = {
     mic_denied:'❌ Permission denied', mic_missing:'❌ Microphone not found',
     mic_overlay:'❌ Android blocked — close floating bubbles/overlays and try again',
     cam_android_tip:'Android: Close chat bubbles or floating overlays before testing',
+    cam_denied:'❌ Permission denied', cam_missing:'❌ Camera not found',
     cam_overlay:'❌ Android blocked access — close any floating bubbles/overlays (chat bubbles, screen recorder) then try again',
     cam_active_back:'✅ Rear camera active', cam_active_front:'✅ Front camera active',
     gpu_no:'❌ WebGL not supported',
@@ -769,7 +771,32 @@ let mcamStream=null;
 async function testMCam(facing){
   const d=document.getElementById('dot-mcam'),r=document.getElementById('res-mcam'),v=document.getElementById('mcamVideo');
   if(mcamStream) mcamStream.getTracks().forEach(t=>t.stop());
-  d.className='status-dot running'; r.textContent='...';
+  d.className='status-dot running'; r.className='test-result'; r.textContent='...';
+
+  // 1. Check HTTPS
+  if(location.protocol !== 'https:' && location.hostname !== 'localhost'){
+    d.className='status-dot fail'; r.className='test-result bad';
+    r.textContent='❌ Нужен е HTTPS за достъп до камерата';
+    addScore('mcam','fail'); return;
+  }
+  // 2. Check API exists
+  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+    d.className='status-dot fail'; r.className='test-result bad';
+    r.textContent='❌ getUserMedia не се поддържа в този браузър';
+    addScore('mcam','fail'); return;
+  }
+  // 3. Check permission state if possible
+  if(navigator.permissions){
+    try {
+      const ps = await navigator.permissions.query({name:'camera'});
+      if(ps.state === 'denied'){
+        d.className='status-dot fail'; r.className='test-result bad';
+        r.innerHTML='❌ Камерата е блокирана в настройките на браузъра<br><small style="color:var(--muted)">Chrome: ⋮ → Настройки → Поверителност → Разрешения за сайтове → Камера</small>';
+        addScore('mcam','fail'); return;
+      }
+    } catch(pe){ /* permission query not supported, continue */ }
+  }
+  // 4. Try getUserMedia
   try {
     mcamStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:facing}});
     v.srcObject=mcamStream; v.style.display='block';
@@ -778,8 +805,16 @@ async function testMCam(facing){
     addScore('mcam','pass');
   } catch(e){
     d.className='status-dot fail'; r.className='test-result bad';
-    const isOverlay = e.name==='NotAllowedError' && e.message && e.message.toLowerCase().includes('overlay');
-    r.innerHTML = isOverlay ? t('cam_overlay') : t('cam_denied');
+    const msg = (e.message||'').toLowerCase();
+    if(msg.includes('overlay')){
+      r.textContent = t('cam_overlay');
+    } else if(e.name==='NotAllowedError'){
+      r.innerHTML='❌ '+t('cam_denied')+'<br><small style="color:var(--muted)">Chrome: ⋮ → Настройки → Поверителност → Камера → emillion-lab.github.io → Разреши</small>';
+    } else if(e.name==='NotFoundError'){
+      r.textContent = t('cam_missing');
+    } else {
+      r.textContent = '❌ '+e.name+': '+e.message;
+    }
     addScore('mcam','fail');
   }
 }
