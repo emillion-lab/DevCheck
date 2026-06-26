@@ -772,54 +772,27 @@ async function testMCam(facing){
   const d=document.getElementById('dot-mcam'),r=document.getElementById('res-mcam'),v=document.getElementById('mcamVideo');
   if(mcamStream) mcamStream.getTracks().forEach(t=>t.stop());
   d.className='status-dot running'; r.className='test-result'; r.textContent='...';
-
-  // Check API
-  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
-    d.className='status-dot fail'; r.className='test-result bad';
-    r.textContent = lang==='bg'
-      ? '❌ getUserMedia не се поддържа в този браузър'
-      : '❌ getUserMedia not supported in this browser';
-    addScore('mcam','fail'); return;
-  }
-
-  // Check permission state
-  let permState = 'prompt';
-  if(navigator.permissions){
-    try { permState = (await navigator.permissions.query({name:'camera'})).state; } catch(e){}
-  }
-  if(permState === 'denied'){
-    d.className='status-dot fail'; r.className='test-result bad';
-    r.innerHTML = lang==='bg'
-      ? '❌ Камерата е блокирана<br><small style="color:var(--muted)">Chrome ⋮ → Настройки на сайта → Камера → Разреши</small>'
-      : '❌ Camera is blocked<br><small style="color:var(--muted)">Chrome ⋮ → Site settings → Camera → Allow</small>';
-    addScore('mcam','fail'); return;
-  }
-
-  // Try getUserMedia
-  try {
-    mcamStream = await navigator.mediaDevices.getUserMedia({video:{facingMode:facing}});
-    v.srcObject=mcamStream; v.style.display='block';
+  // Call getUserMedia immediately — no async ops before it to preserve trusted gesture
+  navigator.mediaDevices.getUserMedia({video:{facingMode:facing}})
+  .then(stream=>{
+    mcamStream=stream; v.srcObject=stream; v.style.display='block';
     d.className='status-dot pass'; r.className='test-result good';
-    r.textContent = facing==='environment' ? t('cam_active_back') : t('cam_active_front');
+    r.textContent=facing==='environment'?t('cam_active_back'):t('cam_active_front');
     addScore('mcam','pass');
-  } catch(e){
+  })
+  .catch(e=>{
     d.className='status-dot fail'; r.className='test-result bad';
-    // Android overlay error — OS blocks the permission dialog
     if(e.name==='NotAllowedError'){
       r.innerHTML = lang==='bg'
-        ? '❌ Android блокира разрешението<br>'
-          + '<small style="color:var(--muted)">Затворете всички <b>floating приложения</b> (chat балончета, screen recorder, accessibility overlays) и опитайте отново.<br>'
-          + 'Настройки → Приложения → ⋮ → Специален достъп → Показване върху др. приложения</small>'
-        : '❌ Android blocked the permission<br>'
-          + '<small style="color:var(--muted)">Close all <b>floating apps</b> (chat bubbles, screen recorder, accessibility overlays) and try again.<br>'
-          + 'Settings → Apps → ⋮ → Special access → Display over other apps</small>';
+        ? '❌ Достъпът отказан<br><small style="color:var(--muted)">Chrome ⋮ → Настройки на сайта → Камера → Разреши</small>'
+        : '❌ Permission denied<br><small style="color:var(--muted)">Chrome ⋮ → Site settings → Camera → Allow</small>';
     } else if(e.name==='NotFoundError'){
-      r.textContent = t('cam_missing');
+      r.textContent=t('cam_missing');
     } else {
-      r.textContent = '❌ '+e.name+': '+e.message;
+      r.textContent='❌ '+e.name+': '+e.message;
     }
     addScore('mcam','fail');
-  }
+  });
 }
 function stopMCam(){if(mcamStream){mcamStream.getTracks().forEach(t=>t.stop());mcamStream=null;}document.getElementById('mcamVideo').style.display='none';}
 
