@@ -255,13 +255,18 @@
         </div>
         <div class="test-result" id="res-mcam" data-t-init="press_test"></div>
         <video id="mcamVideo" autoplay muted playsinline style="width:100%;border-radius:8px;display:none;max-height:140px;object-fit:cover"></video>
+        <img id="mcamPhoto" style="width:100%;border-radius:8px;display:none;max-height:160px;object-fit:cover"/>
+        <input type="file" id="camFileBack" accept="image/*" capture="environment" style="display:none" onchange="onCamFile(this,'environment')">
+        <input type="file" id="camFileFront" accept="image/*" capture="user" style="display:none" onchange="onCamFile(this,'user')">
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
           <button class="btn" onclick="testMCam('environment')">▶ <span data-t="cam_back"></span></button>
           <button class="btn" onclick="testMCam('user')">▶ <span data-t="cam_front"></span></button>
           <button class="btn danger small" onclick="stopMCam()">■ <span data-t="stop"></span></button>
         </div>
-        <div style="margin-top:8px;font-size:11px;color:var(--muted);line-height:1.4">
-          💡 <span data-t="cam_android_tip"></span>
+        <div id="camFallbackBtns" style="display:none;flex-wrap:wrap;gap:6px;margin-top:6px">
+          <div style="font-size:11px;color:var(--yellow);margin-bottom:4px;width:100%">📷 <span id="camFallbackMsg"></span></div>
+          <button class="btn primary" onclick="document.getElementById('camFileBack').click()">📷 <span data-t="cam_back"></span></button>
+          <button class="btn primary" onclick="document.getElementById('camFileFront').click()">🤳 <span data-t="cam_front"></span></button>
         </div>
       </div>
 
@@ -768,31 +773,41 @@ async function testCam(){
 function stopCam(){if(camStream){camStream.getTracks().forEach(t=>t.stop());camStream=null;}document.getElementById('camVideo').style.display='none';}
 
 let mcamStream=null;
-async function testMCam(facing){
+function testMCam(facing){
   const d=document.getElementById('dot-mcam'),r=document.getElementById('res-mcam'),v=document.getElementById('mcamVideo');
   if(mcamStream) mcamStream.getTracks().forEach(t=>t.stop());
   d.className='status-dot running'; r.className='test-result'; r.textContent='...';
-  // Call getUserMedia immediately — no async ops before it to preserve trusted gesture
   navigator.mediaDevices.getUserMedia({video:{facingMode:facing}})
   .then(stream=>{
     mcamStream=stream; v.srcObject=stream; v.style.display='block';
+    document.getElementById('mcamPhoto').style.display='none';
+    document.getElementById('camFallbackBtns').style.display='none';
     d.className='status-dot pass'; r.className='test-result good';
     r.textContent=facing==='environment'?t('cam_active_back'):t('cam_active_front');
     addScore('mcam','pass');
   })
   .catch(e=>{
-    d.className='status-dot fail'; r.className='test-result bad';
-    if(e.name==='NotAllowedError'){
-      r.innerHTML = lang==='bg'
-        ? '❌ Достъпът отказан<br><small style="color:var(--muted)">Chrome ⋮ → Настройки на сайта → Камера → Разреши</small>'
-        : '❌ Permission denied<br><small style="color:var(--muted)">Chrome ⋮ → Site settings → Camera → Allow</small>';
-    } else if(e.name==='NotFoundError'){
-      r.textContent=t('cam_missing');
-    } else {
-      r.textContent='❌ '+e.name+': '+e.message;
-    }
-    addScore('mcam','fail');
+    d.className='status-dot warn'; r.className='test-result warn';
+    // Show fallback photo capture buttons
+    const fb=document.getElementById('camFallbackBtns');
+    fb.style.display='flex';
+    document.getElementById('camFallbackMsg').textContent=lang==='bg'
+      ?'getUserMedia блокиран — използвайте нативна камера:'
+      :'getUserMedia blocked — use native camera:';
+    r.textContent='⚠️ '+(lang==='bg'?'Опитайте с бутоните по-долу':'Try buttons below')+' · '+e.name;
   });
+}
+function onCamFile(input, facing){
+  const d=document.getElementById('dot-mcam'),r=document.getElementById('res-mcam');
+  const file=input.files[0];
+  if(!file) return;
+  const img=document.getElementById('mcamPhoto');
+  img.src=URL.createObjectURL(file);
+  img.style.display='block';
+  d.className='status-dot pass'; r.className='test-result good';
+  r.textContent=(facing==='environment'?t('cam_active_back'):t('cam_active_front'))
+    +' · '+(lang==='bg'?'Снимка направена ✅':'Photo captured ✅');
+  addScore('mcam','pass');
 }
 function stopMCam(){if(mcamStream){mcamStream.getTracks().forEach(t=>t.stop());mcamStream=null;}document.getElementById('mcamVideo').style.display='none';}
 
