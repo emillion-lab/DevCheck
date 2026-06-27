@@ -277,6 +277,11 @@
           <button class="btn" onclick="testAudioTone(440,'both','maudio')">🔊 <span data-t="sound"></span></button>
           <button class="btn" onclick="testMicMobile()">🎤 <span data-t="mic"></span></button>
         </div>
+        <div id="micManualBtns" style="display:none;gap:6px;margin-top:8px;flex-wrap:wrap">
+          <button class="check-btn ok" onclick="micManual('pass')">✓ OK</button>
+          <button class="check-btn nok" onclick="micManual('fail')">✗ <span data-t="nok_btn"></span></button>
+        </div>
+        </div>
       </div>
 
       <div class="test-card">
@@ -733,19 +738,45 @@ async function testMic(){
     addScore('mic','fail');
   }
 }
-async function testMicMobile(){
+function testMicMobile(){
   const d=document.getElementById('dot-maudio'),r=document.getElementById('res-maudio');
-  d.className='status-dot running'; r.textContent='...';
-  try {
-    const stream=await navigator.mediaDevices.getUserMedia({audio:true});
+  const isMobile=/Android|iPhone|iPad/i.test(navigator.userAgent);
+  if(isMobile){
+    d.className='status-dot warn'; r.className='test-result warn';
+    r.innerHTML = lang==='bg'
+      ? '⚠️ Тествайте микрофона ръчно:<br>'
+        +'<small style="color:var(--muted);line-height:1.6">'
+        +'1. Отворете <b>Диктофон</b> или Voice Recorder<br>'
+        +'2. Запишете 5 секунди говор<br>'
+        +'3. Пуснете записа — чува ли се ясно?<br>'
+        +'Маркирайте резултата ↓</small>'
+      : '⚠️ Test microphone manually:<br>'
+        +'<small style="color:var(--muted);line-height:1.6">'
+        +'1. Open <b>Voice Recorder</b> app<br>'
+        +'2. Record 5 seconds of speech<br>'
+        +'3. Play it back — is it clear?<br>'
+        +'Mark the result below ↓</small>';
+    document.getElementById('micManualBtns').style.display='flex';
+    return;
+  }
+  // Desktop
+  navigator.mediaDevices.getUserMedia({audio:true})
+  .then(stream=>{
     stream.getTracks().forEach(t=>t.stop());
     d.className='status-dot pass'; r.className='test-result good';
     r.textContent=lang==='bg'?'✅ Микрофон работи':'✅ Microphone works';
     addScore('maudio','pass');
-  } catch(e){
+  })
+  .catch(e=>{
     d.className='status-dot fail'; r.className='test-result bad';
     r.textContent=t('mic_denied'); addScore('maudio','fail');
-  }
+  });
+}
+function micManual(result){
+  document.getElementById('dot-maudio').className='status-dot '+(result==='pass'?'pass':'fail');
+  addScore('maudio',result);
+  document.querySelectorAll('#micManualBtns .check-btn').forEach(b=>b.classList.remove('active'));
+  event.target.classList.add('active');
 }
 
 // ═══════════ CAMERA ═══════════
