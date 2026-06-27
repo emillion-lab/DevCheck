@@ -255,18 +255,15 @@
         </div>
         <div class="test-result" id="res-mcam" data-t-init="press_test"></div>
         <video id="mcamVideo" autoplay muted playsinline style="width:100%;border-radius:8px;display:none;max-height:140px;object-fit:cover"></video>
-        <img id="mcamPhoto" style="width:100%;border-radius:8px;display:none;max-height:160px;object-fit:cover"/>
-        <input type="file" id="camFileBack" accept="image/*" capture="environment" style="display:none" onchange="onCamFile(this,'environment')">
-        <input type="file" id="camFileFront" accept="image/*" capture="user" style="display:none" onchange="onCamFile(this,'user')">
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
           <button class="btn" onclick="testMCam('environment')">▶ <span data-t="cam_back"></span></button>
           <button class="btn" onclick="testMCam('user')">▶ <span data-t="cam_front"></span></button>
           <button class="btn danger small" onclick="stopMCam()">■ <span data-t="stop"></span></button>
         </div>
-        <div id="camFallbackBtns" style="display:none;flex-wrap:wrap;gap:6px;margin-top:6px">
-          <div style="font-size:11px;color:var(--yellow);margin-bottom:4px;width:100%">📷 <span id="camFallbackMsg"></span></div>
-          <button class="btn primary" onclick="document.getElementById('camFileBack').click()">📷 <span data-t="cam_back"></span></button>
-          <button class="btn primary" onclick="document.getElementById('camFileFront').click()">🤳 <span data-t="cam_front"></span></button>
+        <div id="camManualBtns" style="display:none;gap:6px;margin-top:8px;flex-wrap:wrap">
+          <button class="check-btn ok cam-manual-btn" onclick="camManual('pass')">✓ OK</button>
+          <button class="check-btn nok cam-manual-btn" onclick="camManual('fail')">✗ <span data-t="nok_btn"></span></button>
+          <button class="check-btn skip cam-manual-btn" onclick="camManual('warn')">⚠ <span data-t="skip_btn"></span></button>
         </div>
       </div>
 
@@ -775,32 +772,52 @@ function stopCam(){if(camStream){camStream.getTracks().forEach(t=>t.stop());camS
 let mcamStream=null;
 function testMCam(facing){
   const d=document.getElementById('dot-mcam'),r=document.getElementById('res-mcam');
-  // Skip getUserMedia entirely on mobile — use native camera input
-  const isMobile = /Android|iPhone|iPad/i.test(navigator.userAgent);
+  const v=document.getElementById('mcamVideo');
+  const isMobile=/Android|iPhone|iPad/i.test(navigator.userAgent);
   if(isMobile){
-    d.className='status-dot running'; r.className='test-result';
-    r.textContent=lang==='bg'?'📷 Отваря камерата...':'📷 Opening camera...';
-    const inputId = facing==='environment'?'camFileBack':'camFileFront';
-    document.getElementById(inputId).click();
+    // Browser camera APIs unreliable on Android — show manual instructions
+    d.className='status-dot warn';
+    r.className='test-result warn';
+    r.innerHTML = lang==='bg'
+      ? '⚠️ Тествайте камерата ръчно:<br>'
+        +'<small style="color:var(--muted);line-height:1.6">'
+        +'1. Отворете стандартното приложение <b>Камера</b><br>'
+        +'2. Снимайте с задна камера — проверете фокус и качество<br>'
+        +'3. Превключете на предна камера<br>'
+        +'4. Запишете кратко видео — проверете звука<br>'
+        +'След проверка маркирайте резултата ↓</small>'
+      : '⚠️ Test camera manually:<br>'
+        +'<small style="color:var(--muted);line-height:1.6">'
+        +'1. Open the stock <b>Camera</b> app<br>'
+        +'2. Take a photo with rear camera — check focus & quality<br>'
+        +'3. Switch to front camera<br>'
+        +'4. Record a short video — check audio<br>'
+        +'Mark the result below ↓</small>';
+    document.getElementById('camManualBtns').style.display='flex';
     return;
   }
-  // Desktop: use getUserMedia
-  const v=document.getElementById('mcamVideo');
+  // Desktop
   if(mcamStream) mcamStream.getTracks().forEach(t=>t.stop());
   d.className='status-dot running'; r.className='test-result'; r.textContent='...';
   navigator.mediaDevices.getUserMedia({video:{facingMode:facing}})
   .then(stream=>{
     mcamStream=stream; v.srcObject=stream; v.style.display='block';
-    document.getElementById('mcamPhoto').style.display='none';
     d.className='status-dot pass'; r.className='test-result good';
     r.textContent=facing==='environment'?t('cam_active_back'):t('cam_active_front');
     addScore('mcam','pass');
   })
   .catch(e=>{
     d.className='status-dot fail'; r.className='test-result bad';
-    r.textContent='❌ '+e.name+': '+e.message;
+    r.textContent='❌ '+e.name;
     addScore('mcam','fail');
   });
+}
+function camManual(result){
+  const d=document.getElementById('dot-mcam');
+  d.className='status-dot '+(result==='pass'?'pass':result==='warn'?'warn':'fail');
+  addScore('mcam',result);
+  document.querySelectorAll('.cam-manual-btn').forEach(b=>b.classList.remove('active'));
+  event.target.classList.add('active');
 }
 function onCamFile(input, facing){
   const d=document.getElementById('dot-mcam'),r=document.getElementById('res-mcam');
